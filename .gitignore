@@ -10,3 +10,11 @@ pom.xml.asc
 .lein-plugins/
 .lein-failures
 .nrepl-port
+.nrepl-history
+
+# frontend
+/client/target/
+/resources/public/js/app.js
+
+*.iml
+.idea

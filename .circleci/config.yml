@@ -1,0 +1,50 @@
+version: 2
+jobs:
+  build:
+    working_directory: /app
+    docker:
+      - image: docker:17.05.0-ce-git
+    environment:
+      APP_NAME: realtime
+    steps:
+      - checkout
+      - setup_remote_docker
+      - restore_cache:
+          keys:
+            - v1-{{ .Branch }}
+          paths:
+            - /caches/app.tar
+      - run:
+          name: Load Docker image layer cache
+          command: |
+            set +o pipefail
+            docker load -i /caches/app.tar | true
+      - run:
+          name: Build application Docker image
+          command: docker build --cache-from $APP_NAME -t $APP_NAME:$CIRCLE_BUILD_NUM .
+      - run:
+          name: Save Docker image layer cache
+          command: |
+            mkdir -p /caches
+            docker save -o /caches/app.tar $APP_NAME
+      - save_cache:
+          key: v1-{{ .Branch }}-{{ epoch }}
+          paths:
+            - /caches/app.tar
+      - deploy:
+          name: Provision infrastructure with Terraform
+          command: |
+            docker build \
+              -t terraform \
+              --build-arg AWS_ACCESS_KEY=$AWS_ACCESS_KEY \
+              --build-arg AWS_SECRET_KEY=$AWS_SECRET_KEY \
+              --build-arg HEROKU_EMAIL=$HEROKU_EMAIL \
+              --build-arg HEROKU_API_KEY=$HEROKU_API_KEY \
+              --build-arg HEROKU_APP_NAME=$HEROKU_APP_NAME .terraform
+            docker rmi -f terraform
+      - deploy:
+          name: Deploy to Heroku
+          command: |
+            docker login --username=_ --password=$HEROKU_API_KEY registry.heroku.com
+            docker tag $APP_NAME:$CIRCLE_BUILD_NUM registry.heroku.com/$HEROKU_APP_NAME/web:$CIRCLE_BUILD_NUM
+            docker push registry.heroku.com/$HEROKU_APP_NAME/web:$CIRCLE_BUILD_NUM
