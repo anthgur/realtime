@@ -1,6 +1,6 @@
 (ns realtime.server
   (:require [realtime.system :refer [system]]
-            [com.stuartsierra.component :as component])
+            [com.stuartsierra.component :refer [start]])
   (:gen-class))
 
 (defn port
@@ -13,6 +13,6 @@
 
 (defn -main
   [& args]
-  (component/start (system {:port (port)
-                            :consume-gtfs? true
-                            :mbta-pb-url (mbta-pb-url)})))
+  (start (system {:port (port)
+                  :consume-gtfs? true
+                  :mbta-pb-url (mbta-pb-url)})))

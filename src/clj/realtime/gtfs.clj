@@ -1,5 +1,6 @@
 (ns realtime.gtfs
-  (:require [clojure.core.async :refer [<! >! <!! go go-loop chan close!] :as async]
+  (:require [realtime.subscriptions :refer [send-sub!]]
+            [clojure.core.async :refer [<! >! <!! go go-loop chan close!] :as async]
             [flatland.protobuf.core :as f.p.core]
             [com.stuartsierra.component :as component]
             [taoensso.timbre :as timbre])
@@ -50,3 +51,36 @@
         (reset! running? false)
         (close! out-chan)
         (dissoc component :running?)))))
+
+(defn dedupe-ident
+  [ident-fn]
+  (fn [coll]
+    (first (reduce
+             (fn [[coll ids :as acc] item]
+               (let [id (ident-fn item)]
+                 (if (contains? ids id)
+                   acc [(conj coll item) (conj ids id)])))
+             [[] #{}]
+             coll))))
+
+(defn vehicle-id
+  [entity]
+  (-> entity :vehicle :vehicle :id))
+
+(def dedupe-message (dedupe-ident vehicle-id))
+
+(defrecord FeedPusher [client-store last-message in-chan]
+  component/Lifecycle
+  (start [component]
+    (go-loop []
+      (when-let [{:keys [entity] :as message} (<! in-chan)]
+        (let [deduped (dedupe-message entity)]
+          (reset! last-message deduped)
+          (doseq [[_ {:keys [channel routes-sub]}]
+                  @client-store]
+            (when routes-sub
+              (send-sub! channel deduped)))
+          (recur))))
+    component)
+
+  (stop [component] component))
