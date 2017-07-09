@@ -100,10 +100,6 @@
 
   (stop [component] component))
 
-(defn get-mbta-pb-url
-  [url]
-  (or url (System/getenv "MBTA_PB_URL")))
-
 (defn system
   [{:keys [port consume-gtfs? mbta-pb-url]}]
   (component/system-using
@@ -111,7 +107,7 @@
     :gtfs-feed
     (component/using
      (gtfs/map->GTFSFeed {:timeout 10000
-                          :url (get-mbta-pb-url mbta-pb-url)
+                          :url mbta-pb-url
                           :running? consume-gtfs?})
      {:out-chan :gtfs-out-chan})
 

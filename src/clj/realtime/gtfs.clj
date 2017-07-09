@@ -23,7 +23,7 @@
   component/Lifecycle
   (start [component]
     (let [component (assoc component
-                      :running? (atom (and running? true))
+                      :running? (atom running?)
                       :uuid (UUID/randomUUID))]
       (timbre/info "starting gtfs feed reader" component)
       (go-loop []
