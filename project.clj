@@ -17,6 +17,7 @@
    [juxt.modular/ring "0.5.3"]
    [org.flatland/protobuf "0.8.1"]
    [ring/ring-defaults "0.3.0"]
+   [com.taoensso/timbre "4.10.0"]
 
    [org.clojure/clojurescript "1.9.227"]
    [cljsjs/material-ui "0.18.3-0"]
@@ -26,6 +27,7 @@
 
   :resource-paths ["resources"]
   :source-paths ["src/clj" "src/cljs"]
+  :test-paths ["test/clj"]
 
   :plugins
   [[lein-cljsbuild "1.1.3"]

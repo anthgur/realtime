@@ -10,6 +10,7 @@
             [modular.http-kit :as m.http-kit]
             [modular.ring :as m.ring]
             [modular.bidi :as m.bidi]
+            [taoensso.timbre :as timbre]
             [org.httpkit.server :as o.h.server :refer [on-close on-receive]]))
 
 (defn dedupe-ident
@@ -35,7 +36,8 @@
     (o.h.server/send! channel message)))
 
 (defn send-sub!
-  [channel message]
+  [{:keys [client-id channel]} message]
+  (timbre/info "sending client subscription" {:client-id client-id})
   (send! channel :vehicles/push message))
 
 (defmulti dispatch!
@@ -44,12 +46,13 @@
 
 (defmethod dispatch! :routes/subscribe!
   [{:keys [client-store last-message]}
-   {:keys [client-id channel]}
+   {:keys [client-id channel] :as subscription}
    {{:keys [routes-sub]} :data :as event}]
+  (timbre/info "client subscribing" {:client-id client-id})
   (swap! client-store update-in
          [client-id]
          (fn [old] (assoc old :routes-sub routes-sub))) ;; sub currently ignored
-  (send-sub! channel @last-message))
+  (send-sub! subscription @last-message))
 
 (defmethod dispatch! :default
   [_ {:keys [channel]} message]
@@ -97,14 +100,19 @@
 
   (stop [component] component))
 
+(defn get-mbta-pb-url
+  [url]
+  (or url (System/getenv "MBTA_PB_URL")))
+
 (defn system
-  [{:keys [port]
-    :as opts}]
+  [{:keys [port consume-gtfs? mbta-pb-url]}]
   (component/system-using
    (component/system-map
     :gtfs-feed
     (component/using
-     (gtfs/map->GTFSFeed {:timeout 10000 :url gtfs/vehicles-url})
+     (gtfs/map->GTFSFeed {:timeout 10000
+                          :url (get-mbta-pb-url mbta-pb-url)
+                          :running? consume-gtfs?})
      {:out-chan :gtfs-out-chan})
 
     :gtfs-out-chan

@@ -1,10 +1,10 @@
 (ns realtime.gtfs
   (:require [clojure.core.async :refer [<! >! <!! go go-loop chan close!] :as async]
             [flatland.protobuf.core :as f.p.core]
-            [com.stuartsierra.component :as component])
-  (:import [com.google.transit.realtime GtfsRealtime$FeedMessage]))
-
-(def vehicles-url (System/getenv "MBTA_PB_URL"))
+            [com.stuartsierra.component :as component]
+            [taoensso.timbre :as timbre])
+  (:import [com.google.transit.realtime GtfsRealtime$FeedMessage]
+           (java.util UUID)))
 
 (def FeedMessage (f.p.core/protodef GtfsRealtime$FeedMessage))
 
@@ -22,27 +22,31 @@
 (defrecord GTFSFeed [timeout out-chan url running?]
   component/Lifecycle
   (start [component]
-    (let [running? (or running? (atom true))]
+    (let [component (assoc component
+                      :running? (atom (and running? true))
+                      :uuid (UUID/randomUUID))]
+      (timbre/info "starting gtfs feed reader" component)
       (go-loop []
-        (when-let [message (and @running? (feed-message url))]
-          (>! out-chan (protomap message))
-          (<! (async/timeout timeout))
-          (recur)))
-      (assoc component :running? running?)))
+        (let [message (and @(:running? component)
+                           (feed-message url))
+              uuid (UUID/randomUUID)]
+          (when message
+            (timbre/info "reading gtfs feed message"
+                         {:component component :uuid uuid})
+            (let [data (protomap message)]
+              (timbre/info "read gtfs feed message"
+                           {:component component :uuid uuid})
+              (>! out-chan data))
+            (timbre/info "gtfs feed reader sleeping" component)
+            (<! (async/timeout timeout))
+            (timbre/info "gtfs feed reader waking up" component)
+            (recur))))
+      component))
 
-  (stop [_]
-    (when @running?
-      (reset! running? false)
-      (close! out-chan))))
-
-(comment
-  (clojure.pprint/pprint (f.p.core/protobuf-schema FeedMessage))
-
-  (def feed
-    (-> {:timeout 5000 :out-chan (chan (async/sliding-buffer 5)) :url vehicles-url}
-        map->GTFSFeed
-        component/start))
-
-  (<!! (:out-chan feed))
-
-  (component/stop feed))
+  (stop [component]
+    (let [{:keys [running?]} component]
+      (when (and running? @running?)
+        (timbre/info "gtfs feed reader stopping")
+        (reset! running? false)
+        (close! out-chan)
+        (dissoc component :running?)))))
