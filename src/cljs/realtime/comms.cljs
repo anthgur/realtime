@@ -3,11 +3,11 @@
             [cljs.reader]))
 
 (defn open-ws!
-  [{:keys [client-id] :as state} _]
+  [db _]
   (let [location (aget js/window "location" "origin")
         origin (second (.split location "//"))
         uuid-str (-> (.split
-                       (pr-str client-id) "\"")
+                       (pr-str (:app/client-id db)) "\"")
                      second)
         socket (js/WebSocket. (str "wss://" origin "/websocket?client-id=" uuid-str))]
     (aset socket "onopen"
@@ -23,4 +23,4 @@
                   (cljs.reader/read-string (.-data m))]
               (println event "\n" (js/Date.))
               (rf/dispatch [event data]))))
-    (assoc state :app/ws socket)))
+    (assoc db :app/ws socket)))

@@ -1,5 +1,5 @@
 (ns realtime.gtfs
-  (:require [realtime.subscriptions :refer [send-sub!]]
+  (:require [realtime.events :refer [send-event]]
             [clojure.core.async :refer [<! >! <!! go go-loop chan close!] :as async]
             [flatland.protobuf.core :as f.p.core]
             [com.stuartsierra.component :as component]
@@ -76,10 +76,10 @@
       (when-let [{:keys [entity] :as message} (<! in-chan)]
         (let [deduped (dedupe-message entity)]
           (reset! last-message deduped)
-          (doseq [[_ {:keys [channel routes-sub]}]
+          (doseq [[_ client]
                   @client-store]
-            (when routes-sub
-              (send-sub! channel deduped)))
+            (when (:routes-sub client)
+              (send-event client :vehicles/push deduped)))
           (recur))))
     component)
 
