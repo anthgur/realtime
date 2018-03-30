@@ -9,3 +9,11 @@ public GTFS realtime data feed using protocol buffers from a Clojure server and 
 the updates to ClojureScript clients.
 
 I originally created the client using reagent, but have since reimplemented it using om.next.
+
+As of 3/30/18 it appears the project has suffered from bitrot and does not render anything on the front end.
+I may update it in the future but I do not have any plans to fix it at this time.
+
+## Running Locally
+
+- `docker build -t gtfs-realtime .`
+- `docker run -p 8080:8080 -e MBTA_PB_URL="https://cdn.mbta.com/realtime/VehiclePositions.pb" gtfs-realtime:latest`
